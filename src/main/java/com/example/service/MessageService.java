@@ -27,22 +27,22 @@ public class MessageService {
     }
 
     // Create (Insert) a new message into the Message table
-    public ResponseEntity<Message> createMessage(Message message) {
+    public Message createMessage(Message message) {
         // Validate messageText and postedBy
         if (message.getMessageText() == null || message.getMessageText().trim().isEmpty() ||
                 message.getMessageText().length() > 255 || message.getPostedBy() == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return null;
         }
 
         // Check if an Account exists with the given username (postedBy)
         String username = getUsernameByAccountId(message.getPostedBy());
         if (username == null || !accountRepository.existsByUsername(username)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return null;
         }
 
         // Save the new message to the database
         Message savedMessage = messageRepository.save(message);
-        return ResponseEntity.ok(savedMessage);
+        return savedMessage;
     }
 
     // Method to retrieve username based on accountId (postedBy)
@@ -60,23 +60,21 @@ public class MessageService {
     }
 
     // Method to retrieve message based on messageId
-    public ResponseEntity<Message> getMessageById(Integer messageId) {
+    public Optional<Message> getMessageById(Integer messageId) {
+
         Optional<Message> optionalMessage = messageRepository.findById(messageId);
-        if (optionalMessage.isPresent()) {
-            return ResponseEntity.ok(optionalMessage.get());
-        } else {
-            return ResponseEntity.ok().build();
-        }
+        
+        return optionalMessage;
     }
 
     // Method to delete a message based on messageId
-    public ResponseEntity<Object> deleteMessageById(Integer messageId) {
+    public Boolean deleteMessageById(Integer messageId) {
         // Check if the message with the given ID exists
         if (messageRepository.existsById(messageId)) {
             messageRepository.deleteById(messageId);
-            return ResponseEntity.ok().body("1");
+            return true;
         } else {
-            return ResponseEntity.ok().build();
+            return false;
         }
     }
 
@@ -111,9 +109,10 @@ public class MessageService {
     }
 
     // Method to retrieve messages based on accountId (postedBy)
-    public ResponseEntity<List<Message>> getMessagesByAccountId(Integer accountId) {
+    public List<Message> getMessagesByAccountId(Integer accountId) {
+        
         List<Message> messages = messageRepository.findByPostedBy(accountId);
 
-        return ResponseEntity.ok(messages);
+        return messages;
     }
 }

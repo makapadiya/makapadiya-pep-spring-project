@@ -5,6 +5,8 @@ import com.example.entity.Message;  // Message is message/post class
 import com.example.service.AccountService;  // import service layer class, where business logic lives
 import com.example.service.MessageService;  // import service layer class, where business logic lives
 
+import com.example.repository.AccountRepository;
+
 import java.util.List;  // This Java interface is used to represent an ordered collection (also known as a sequence) of objects
 import java.util.Optional;  // This is a container object that may or may not contain a non-null value. It's primarily used to represent the absence of a value, providing a more explicit way to handle situations where a result might be null.
 
@@ -34,6 +36,9 @@ public class SocialMediaController {
     private final AccountService accountService;
     private final MessageService messageService;
 
+    @Autowired // Spring will automatically inject AccountRepository instance here
+    private AccountRepository accountRepository;
+
     @Autowired // Spring will automatically inject SocialMediaController instance here
     public SocialMediaController(AccountService accountService, MessageService messageService) {
         this.accountService = accountService;
@@ -43,7 +48,19 @@ public class SocialMediaController {
     // 1: Our API should be able to process new User registrations.
     @PostMapping("/register") // This annotation is used to map HTTP POST request.
     public ResponseEntity<Account> registerAccount(@RequestBody Account account) {
-        return accountService.registerAccount(account);
+        
+        // Account existingAccount = accountService.getAccountByUsername(account.getUsername());
+        Account existingAccount = accountRepository.findByUsername(account.getUsername());
+        if (existingAccount != null) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT); // Return status 409
+        }
+
+        Account savedAccount = accountService.insertAccount(account);
+        if (savedAccount == null) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT); // Return status 409
+        }
+
+        return new ResponseEntity<>(savedAccount, HttpStatus.OK);
     }
 
     // 2: Our API should be able to process User logins.
@@ -59,10 +76,18 @@ public class SocialMediaController {
         }
     }
 
-    // Our API should be able to process the creation of new messages.
+    // 3: Our API should be able to process the creation of new messages.
     @PostMapping("/messages") // This annotation is used to map HTTP POST request.
     public ResponseEntity<Message> createMessage(@RequestBody Message message) {
-        return messageService.createMessage(message);
+        
+        Message savedMessage = messageService.createMessage(message);
+
+        if (savedMessage == null) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // Return status 400
+        }
+
+        return new ResponseEntity<>(savedMessage, HttpStatus.OK);
+
     }
 
     // 4: Our API should be able to retrieve all messages.
@@ -75,24 +100,51 @@ public class SocialMediaController {
     // 5: Our API should be able to retrieve a message by its ID.
     @GetMapping("/messages/{messageId}") // This annotation is used to map HTTP GET request.
     public ResponseEntity<Message> getMessageById(@PathVariable Integer messageId) {
-        return messageService.getMessageById(messageId);
+        
+        Optional<Message> optionalMessage = messageService.getMessageById(messageId);
+        
+        if (optionalMessage.isPresent()) {
+            return ResponseEntity.ok(optionalMessage.get());
+        } else {
+            return ResponseEntity.ok().build();
+        }
+
     }
 
     // 6: Our API should be able to delete a message identified by a message ID.
     @DeleteMapping("messages/{messageId}") // This annotation is used to map HTTP DELETE request.
     public ResponseEntity<Object> deleteMessage(@PathVariable Integer messageId) {
-        return messageService.deleteMessageById(messageId);
+        
+        Boolean isDeleted = messageService.deleteMessageById(messageId);
+        if (isDeleted) {
+            return ResponseEntity.ok().body("1");
+        } else {
+            return ResponseEntity.ok().build();
+        }
+
     }
 
     // 7: Our API should be able to update a message text identified by a message ID.
     @PatchMapping("messages/{messageId}") // This annotation is used to map HTTP PATCH request.
     public ResponseEntity<Object> updateMessageText(@PathVariable Integer messageId, @RequestBody Message newMessageText) {
-        return messageService.updateMessageText(messageId, newMessageText);
+        
+        try {
+            ResponseEntity<Object> response = messageService.updateMessageText(messageId, newMessageText);
+            return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        }
+        
     }
 
     // 8: Our API should be able to retrieve all messages written by a particular user.
     @GetMapping("accounts/{accountId}/messages") // This annotation is used to map HTTP GET request.
     public ResponseEntity<List<Message>> getMessagesByAccountId(@PathVariable Integer accountId) {
-        return messageService.getMessagesByAccountId(accountId);
+        
+        List<Message> messages = messageService.getMessagesByAccountId(accountId);
+
+        return ResponseEntity.ok(messages);
     }
 }

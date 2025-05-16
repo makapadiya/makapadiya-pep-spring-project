@@ -18,19 +18,19 @@ public class AccountService {
     }
 
     // Register (Insert) a new account into the Account table
-    public ResponseEntity<Account> registerAccount(Account account) {
+    public Account insertAccount(Account account) {
         // Check if the provided username is not blank and password is at least 4 characters long
         if (account.getUsername() == null || account.getUsername().isBlank() || 
             account.getPassword() == null || account.getPassword().length() < 4) {
-            return ResponseEntity.status(400).body(null);
+            return null;
         }
     
         if (doesUsernameExist(account.getUsername())) {
-            return ResponseEntity.status(409).body(null);
+            return null;
         }
     
         Account savedAccount = accountRepository.save(account);
-        return ResponseEntity.status(HttpStatus.OK).body(savedAccount);
+        return savedAccount;
     }
 
     // Check an account exists by username
